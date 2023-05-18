@@ -25,6 +25,7 @@ export type BufferHook<T = Uint8Array> = (config: BufferConfig) => {
   buffer: T[];
   done: boolean;
   error: SerializedError | null;
+  headers: Headers | null; // Add the headers property
   refresh: () => void;
   cancel: () => void;
 };

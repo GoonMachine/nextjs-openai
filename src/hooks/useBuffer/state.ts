@@ -7,6 +7,7 @@ export type State = {
   error: SerializedError | null;
   aborted: boolean;
   controller: AbortController | null;
+  headers: Headers | null; // Add the headers property
 };
 
 export type Action =
@@ -16,6 +17,7 @@ export type Action =
   | { type: "reset" }
   | { type: "add"; payload: Uint8Array }
   | { type: "setError"; payload: SerializedError | null }
+  | { type: "setHeaders"; payload: Headers | null }
   | { type: "setController"; payload: AbortController };
 
 export const streamState = (prevState: State, action: Action) => {
@@ -34,6 +36,13 @@ export const streamState = (prevState: State, action: Action) => {
         controller: null,
       };
 
+    case "setHeaders":
+      // eslint-disable-next-line no-console
+      console.log("Setting headers:", action.payload);
+      return {
+        ...prevState,
+        headers: action.payload,
+      };
     case "refresh":
       prevState.controller?.abort();
       return {

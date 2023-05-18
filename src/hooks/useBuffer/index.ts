@@ -3,17 +3,6 @@ import { yieldStream } from "yield-stream";
 import { BufferHook } from "../types";
 import { State, streamState } from "./state";
 
-/**
- * Fetch a stream from a URL and return the updated buffer as it is received.
- *
- * @category Hooks
- *
- * @example
- * ```tsx
- * const { buffer, done, refresh } = useBuffer(url, 500);
- * // ...
- * ```
- */
 export const useBuffer: BufferHook = ({
   url,
   throttle = 0,
@@ -27,121 +16,119 @@ export const useBuffer: BufferHook = ({
     aborted: false,
     controller: null,
     error: null,
+    headers: null,
   };
 
   const optionsRef = useRef(options);
   const [mounted, setMounted] = useState(false);
 
   const [state, dispatch] = useReducer(streamState, initialState);
-  const { done, buffer, refreshCount, error } = state;
+  const { done, buffer, refreshCount, error, headers } = state;
 
-  useEffect(
-    () => {
-      if (!mounted) {
-        setMounted(true);
+  useEffect(() => {
+    if (!mounted) {
+      setMounted(true);
+    }
+  }, [mounted]);
+
+  const streamChunks = useCallback(async (stream: AsyncGenerator<Uint8Array>, delay: number) => {
+    let lastUpdateTime = 0;
+    let responseHeaders: Headers | null = null; // Initialize with null
+    // eslint-disable-next-line no-console
+    console.log("Stream:", stream);
+
+    for await (const chunk of stream) {
+      dispatch({ type: "add", payload: chunk });
+      if (delay) {
+        const timeSinceLastUpdate = Date.now() - lastUpdateTime;
+        const timeToWait = Math.max(0, delay - timeSinceLastUpdate);
+
+        await new Promise((resolve) => setTimeout(resolve, timeToWait));
+        lastUpdateTime = Date.now();
       }
-    },
-    [mounted],
-  );
+    }
+    dispatch({ type: "done" });
 
-  const streamChunks = useCallback(
-    async (
-      stream: AsyncGenerator<Uint8Array>,
-      delay: number
-    ) => {
-      let lastUpdateTime = 0;
+    // Get the headers from the response object
+    if (stream instanceof ReadableStream && stream.locked) {
+      // eslint-disable-next-line no-console
+      console.log("ReadableStream locked:", stream.locked);
 
-      for await (const chunk of stream) {
-        dispatch({ type: "add", payload: chunk });
+      const readableStreamDefaultReader = stream.getReader();
+      const { value } = await readableStreamDefaultReader.read();
 
-        if (delay) {
-          const timeSinceLastUpdate = Date.now() - lastUpdateTime;
-          const timeToWait = Math.max(0, delay - timeSinceLastUpdate);
+      // eslint-disable-next-line no-console
+      console.log("ReadableStream value:", value);
 
-          await new Promise((resolve) => setTimeout(resolve, timeToWait));
-          lastUpdateTime = Date.now();
-        }
-      }
-      dispatch({ type: "done" });
-    },
-    [dispatch]
-  );
+      const response = value?.response;
+      // eslint-disable-next-line no-console
+      console.log("Response object:", response);
+      responseHeaders = response?.headers || null;
+    }
+    // eslint-disable-next-line no-console
+    console.log("Response Headers:", responseHeaders);
+    // Dispatch the setHeaders action with the updated headers
+    dispatch({ type: "setHeaders", payload: responseHeaders });
+  }, [dispatch]);
 
-  /**
-   * Fetch the new token stream.
-   */
-  useEffect(
-    () => {
-      if (!mounted) {
-        return;
-      }
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
 
-      const newController = new AbortController();
-      dispatch({ type: "setController", payload: newController });
+    const newController = new AbortController();
+    dispatch({ type: "setController", payload: newController });
 
-      /**
-       * The DOM animation to update the buffer.
-       */
-      let animation: number;
+    let animation: number;
 
-      (async () => {
-        try {
-          const { method = "POST" } = optionsRef.current;
-          const { signal } = newController;
+    (async () => {
+      try {
+        const { method = "POST" } = optionsRef.current;
+        const { signal } = newController;
 
-          const response = await fetch(
-            url,
-            {
-              signal,
-              method,
-              body:
-              method === "POST" && data
-                ? JSON.stringify(data)
-                : undefined,
-              ...optionsRef?.current,
-            }
-          );
+        const response = await fetch(url, {
+          signal,
+          method,
+          body: method === "POST" && data ? JSON.stringify(data) : undefined,
+          ...optionsRef?.current,
+        });
 
-          if (!response.ok || !response.body) {
-            const errorText = `[${response.status}] ${response.statusText}`;
+        if (!response.ok || !response.body) {
+          const errorText = `[${response.status}] ${response.statusText}`;
 
-            if (response.body) {
-              const error = await response.text();
-              throw new Error(`${errorText}\n\n${error}`);
-            } else {
-              throw new Error(errorText);
-            }
-          }
-
-          const stream = yieldStream(response.body, newController);
-          animation = requestAnimationFrame(
-            () => streamChunks(stream, throttle)
-          );
-        } catch (error) {
-          if (error instanceof Error) {
-            const { name, message } = error;
-            dispatch({ type: "setError", payload: { name, message } });
+          if (response.body) {
+            const error = await response.text();
+            throw new Error(`${errorText}\n\n${error}`);
           } else {
-            dispatch({ type: "setError", payload: { name: "Error", message: JSON.stringify(error) } });
+            throw new Error(errorText);
           }
         }
-      })();
 
-      return () => {
-        cancelAnimationFrame(animation);
+        const stream = yieldStream(response.body, newController);
+        animation = requestAnimationFrame(() => streamChunks(stream, throttle));
+      } catch (error) {
+        if (error instanceof Error) {
+          const { name, message } = error;
+          dispatch({ type: "setError", payload: { name, message } });
+        } else {
+          dispatch({ type: "setError", payload: { name: "Error", message: JSON.stringify(error) } });
+        }
+      }
+    })();
 
-        dispatch({ type: "cancel" });
-        dispatch({ type: "reset" });
-        dispatch({ type: "setError", payload: null });
-      };
-    },
-    [refreshCount, url, throttle, streamChunks, data, mounted]
-  );
+    return () => {
+      cancelAnimationFrame(animation);
+      dispatch({ type: "cancel" });
+      dispatch({ type: "reset" });
+      dispatch({ type: "setError", payload: null });
+    };
+  }, [refreshCount, url, throttle, streamChunks, data, mounted]);
 
   return {
     buffer,
     done,
     error,
+    headers,
     refresh: () => dispatch({ type: "refresh" }),
     cancel: () => dispatch({ type: "cancel" }),
   };

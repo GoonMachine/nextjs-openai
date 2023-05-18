@@ -22,7 +22,7 @@ import { useBuffer } from "../useBuffer";
  * @category Hooks
  */
 export const useTextBuffer: BufferHook<string> = (args) => {
-  const { buffer, ...hooks } = useBuffer(args);
+  const { buffer, headers, ...hooks } = useBuffer(args);
   const [textBuffer, setTextBuffer] = useState<string[]>([]);
 
   useEffect(
@@ -38,5 +38,6 @@ export const useTextBuffer: BufferHook<string> = (args) => {
   return {
     ...hooks,
     buffer: textBuffer,
+    headers: headers as Headers, // Cast the headers to the Headers type
   };
 };
