@@ -5,84 +5,94 @@ import { SetStateAction, useEffect, useRef, useState } from "react";
 import { StreamingText } from "../components/StreamingText";
 import { useTextBuffer } from "../hooks";
 
-interface DataType {
-  isPriceCorrect: boolean,
-  tiplinkUrl: string
+interface NFTData {
+  address: string;
+  price: number;
+  date: string;
+  image: string;
 }
 
+interface DataType {
+  isPriceCorrect: boolean;
+  tiplinkUrl: string;
+}
 
-const date = "1/4/2020";
+const GuessComponent = ({
+  data,
+  setData,
+}: {
+  data: DataType;
+  setData: React.Dispatch<SetStateAction<DataType>>;
+}) => {  const handleLowerClick = async () => {
+  await sendGuess("lower");
+};
 
-const GuessComponent = ( { data, setData }: { data: DataType, setData: React.Dispatch<SetStateAction<DataType>> }) => {
-  const handleLowerClick = async () => {
-    await sendGuess("lower");
-  };
+const handleHigherClick = async () => {
+  await sendGuess("higher");
+};
 
-  const handleHigherClick = async () => {
-    await sendGuess("higher");
-  };
+const sendGuess = async (userGuess: string) => {
+  try {
+    const response = await fetch("/api/checkGuess", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ guess: userGuess }),
+    });
+    const res = await response.json();
+    console.log(res);
+    setData(res);
+    // Handle the response data as needed
+  } catch (error) {
+    console.error(error);
+    // Handle the error
+  }
+};
 
-  const sendGuess = async (userGuess: string) => {
-    try {
-      const response = await fetch("/api/checkGuess", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ guess: userGuess }),
-      });
-      const res = await response.json();
-      console.log(res);
-      setData(res);
-      // Handle the response data as needed
-    } catch (error) {
-      console.error(error);
-      // Handle the error
-    }
-  };
-
-  return (
-    <>
-      {/* ... */}
-      <div className="flex justify-center">
-        <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r"
-          onClick={handleLowerClick}
-        >
+return (
+  <>
+    {/* ... */}
+    <div className="flex justify-center">
+      <button
+        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r"
+        onClick={handleLowerClick}
+      >
           Lower
-        </button>
-        <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l"
-          onClick={handleHigherClick}
-        >
+      </button>
+      <button
+        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l"
+        onClick={handleHigherClick}
+      >
           Higher
-        </button>
-      </div>
-      {/* ... */}
-    </>
-  );
+      </button>
+    </div>
+    {/* ... */}
+  </>
+);
 };
 
 export default function Home() {
-  const [data, setData] = useState ({
-    isPriceCorrect: false, tiplinkUrl: ""
+  const [data, setData] = useState<DataType>({
+    isPriceCorrect: false,
+    tiplinkUrl: "",
   });
 
-  const [images, setImages] = useState(["", ""]);  // Initialize with two empty strings
+  const [nftData, setNFTData] = useState<NFTData[]>([]);
 
-  // This function will be executed when the component loads
   useEffect(() => {
-    const fetchImages = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch("api/getNFT");  // Replace with your actual endpoint
+        const response = await fetch("api/getClientNFT");
         const jsonData = await response.json();
-        setImages(jsonData.images);
+        setNFTData(jsonData);
       } catch (error) {
         console.error(error);
       }
     };
-    fetchImages();
+    fetchData();
   }, []);
+
   return (
     <>
       <Head>
@@ -95,16 +105,18 @@ export default function Home() {
             <div className="relative">
               <img
                 className="w-64 h-64 object-cover rounded-lg"
-                src={images[0]}
+                src={nftData[0]?.image}
                 alt="Your NFT Image"
               />
               <div className="absolute top-0 left-0 bg-green-500 text-white px-2 py-1">
-                <span className="text-xs">Sold on {date}</span>
+                <span className="text-xs">Sold on {nftData[0]?.date}</span> {/* Update with date1 */}
               </div>
             </div>
             <p className="text-center mt-2 mb-10">NFT 1</p>
             <div className="flex items-center bg-green-500 text-white px-2 py-2 rounded-lg mt-4">
-              <span className="text-lg font-bold text-center">Last Sold: $36,000</span>
+              <span className="text-lg font-bold text-center">
+                Last Sold: ${nftData[0]?.price} {/* Update with price1 */}
+              </span>
             </div>
           </div>
 
@@ -116,11 +128,11 @@ export default function Home() {
             <div className="relative">
               <img
                 className="w-64 h-64 object-cover rounded-lg"
-                src={images[1]}
+                src={nftData[1]?.image}
                 alt="Your NFT Image"
               />
               <div className="absolute top-0 left-0 bg-green-500 text-white px-2 py-1">
-                <span className="text-xs">Sold on {date}</span>
+                <span className="text-xs">Sold on {nftData[1]?.date}</span> {/* Update with date2 */}
               </div>
             </div>
             <p className="text-center mt-2 mb-10">NFT 2</p>

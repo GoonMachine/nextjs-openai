@@ -88,6 +88,9 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
   const nftPrice1 = sale1.amountInSol;
   const nftPrice2 = sale2.amountInSol;
+  const formattedDate1 = new Date(sale1.date).toLocaleDateString("en-US");
+  const formattedDate2 = new Date(sale2.date).toLocaleDateString("en-US");
+
 
   const url2 = "https://api.helius.xyz/v0/token-metadata?api-key=75001ea1-b48d-493a-957c-c9ced9dcf0ee";
   const nftAddresses = [nftAddress1, nftAddress2];
@@ -121,6 +124,11 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
       price1: nftPrice1,
       price2: nftPrice2,
     },
+    dates: {
+      date1: formattedDate1,
+      date2: formattedDate2
+    }
+
   });
 };
 
