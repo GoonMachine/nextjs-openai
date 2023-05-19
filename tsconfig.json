@@ -2,7 +2,7 @@
   "include": [
     "*env.d.ts",
     "src/**/*"
-  ],
+, "getNftFunc.ts"  ],
   "exclude": [
     "node_modules",
     "test/**"
